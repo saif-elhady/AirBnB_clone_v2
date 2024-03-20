@@ -1,385 +1,279 @@
 #!/usr/bin/python3
+"""This module defines the entry point of the command interpreter.
+
+It defines one class, `HBNBCommand()`, which sub-classes the `cmd.Cmd` class.
+This module defines abstractions that allows us to manipulate a powerful
+storage system (FileStorage / DB). This abstraction will also allow us to
+change the type of storage easily without updating all of our codebase.
+
+It allows us to interactively and non-interactively:
+    - create a data model
+    - manage (create, update, destroy, etc) objects via a console / interpreter
+    - store and persist objects to a file (JSON file)
+
+Typical usage example:
+
+    $ ./console
+    (hbnb)
+
+    (hbnb) help
+    Documented commands (type help <topic>):
+    ========================================
+    EOF  create  help  quit
+
+    (hbnb)
+    (hbnb) quit
+    $
 """
-Command interpreter for Holberton AirBnB project
-"""
+import re
 import cmd
-from models import storage, CNC
+import json
+from models import storage
+from models.base_model import BaseModel
+from models.user import User
+from models.state import State
+from models.city import City
+from models.review import Review
+from models.amenity import Amenity
+from models.place import Place
+
+current_classes = {'BaseModel': BaseModel, 'User': User,
+                   'Amenity': Amenity, 'City': City, 'State': State,
+                   'Place': Place, 'Review': Review}
 
 
 class HBNBCommand(cmd.Cmd):
+    """The command interpreter.
+
+    This class represents the command interpreter, and the control center
+    of this project. It defines function handlers for all commands inputted
+    in the console and calls the appropriate storage engine APIs to manipulate
+    application data / models.
+
+    It sub-classes Python's `cmd.Cmd` class which provides a simple framework
+    for writing line-oriented command interpreters.
     """
-    Command inerpreter class
-    """
-    prompt = '(hbnb) '
-    ERR = [
-        '** class name missing **',
-        '** class doesn\'t exist **',
-        '** instance id missing **',
-        '** no instance found **',
-        '** attribute name missing **',
-        '** value missing **',
-        ]
 
-    def preloop(self):
-        """
-        handles intro to command interpreter
-        """
-        print('.----------------------------.')
-        print('|    Welcome to hbnb CLI!    |')
-        print('|   for help, input \'help\'   |')
-        print('|   for quit, input \'quit\'   |')
-        print('.----------------------------.')
+    prompt = "(hbnb) "
 
-    def postloop(self):
+    def precmd(self, line):
+        """Defines instructions to execute before <line> is interpreted.
         """
-        handles exit to command interpreter
-        """
-        print('.----------------------------.')
-        print('|  Well, that sure was fun!  |')
-        print('.----------------------------.')
+        if not line:
+            return '\n'
 
-    def default(self, line):
+        pattern = re.compile(r"(\w+)\.(\w+)\((.*)\)")
+        match_list = pattern.findall(line)
+        if not match_list:
+            return super().precmd(line)
+
+        match_tuple = match_list[0]
+        if not match_tuple[2]:
+            if match_tuple[1] == "count":
+                instance_objs = storage.all()
+                print(len([
+                    v for _, v in instance_objs.items()
+                    if type(v).__name__ == match_tuple[0]]))
+                return "\n"
+            return "{} {}".format(match_tuple[1], match_tuple[0])
+        else:
+            args = match_tuple[2].split(", ")
+            if len(args) == 1:
+                return "{} {} {}".format(
+                    match_tuple[1], match_tuple[0],
+                    re.sub("[\"\']", "", match_tuple[2]))
+            else:
+                match_json = re.findall(r"{.*}", match_tuple[2])
+                if (match_json):
+                    return "{} {} {} {}".format(
+                        match_tuple[1], match_tuple[0],
+                        re.sub("[\"\']", "", args[0]),
+                        re.sub("\'", "\"", match_json[0]))
+                return "{} {} {} {} {}".format(
+                    match_tuple[1], match_tuple[0],
+                    re.sub("[\"\']", "", args[0]),
+                    re.sub("[\"\']", "", args[1]), args[2])
+
+    def do_help(self, arg):
+        """To get help on a command, type help <topic>.
         """
-        default response for unknown commands
+        return super().do_help(arg)
+
+    def do_EOF(self, line):
+        """Inbuilt EOF command to gracefully catch errors.
         """
-        print("This \"{}\" is invalid, run \"help\" "
-              "for more explanations".format(line))
+        print("")
+        return True
+
+    def do_quit(self, arg):
+        """Quit command to exit the program.
+        """
+        return True
 
     def emptyline(self):
-        """
-        Called when an empty line is entered in response to the prompt.
+        """Override default `empty line + return` behaviour.
         """
         pass
 
-    def __class_err(self, arg):
-        """
-        private: checks for missing class or unknown class
-        """
-        error = 0
-        if len(arg) == 0:
-            print(HBNBCommand.ERR[0])
-            error = 1
-        else:
-            if isinstance(arg, list):
-                arg = arg[0]
-            if arg not in CNC.keys():
-                print(HBNBCommand.ERR[1])
-                error = 1
-        return error
-
-    def __id_err(self, arg):
-        """
-        private checks for missing ID or unknown ID
-        """
-        error = 0
-        if (len(arg) < 2):
-            error += 1
-            print(HBNBCommand.ERR[2])
-        if not error:
-            storage_objs = storage.all()
-            for key, value in storage_objs.items():
-                temp_id = key.split('.')[1]
-                if temp_id == arg[1] and arg[0] in key:
-                    return error
-            error += 1
-            print(HBNBCommand.ERR[3])
-        return error
-
-    def do_airbnb(self, arg):
-        """airbnb: airbnb
-        SYNOPSIS: Command changes prompt string"""
-        print("                      __ ___                        ")
-        print("    _     _  _ _||\ |/  \ | _  _  _|_|_     _  _ _| ")
-        print("|_||_)\)/(_|| (_|| \|\__/ || )(_)| |_| )\)/(_|| (_| ")
-        print("   |                                                ")
-        if HBNBCommand.prompt == '(hbnb) ':
-            HBNBCommand.prompt = " /_ /_ _  /_\n/ //_// //_/ "
-        else:
-            HBNBCommand.prompt = '(hbnb) '
-        arg = arg.split()
-        error = self.__class_err(arg)
-
-    def do_quit(self, line):
-        """quit: quit
-        USAGE: Command to quit the program
-        """
-        return True
-
-    def do_EOF(self, line):
-        """function to handle EOF"""
-        print()
-        return True
-
-    def __isfloat(self, val):
-        """
-        checks if a string may be converted to a float
-        """
-        try:
-            float(val)
-            return True
-        except:
-            return False
-
-    def __update_val(self, v):
-        """updates string to proper type, either int, float, or
-        string with proper spaces and " symbols"""
-        if v[0] == '"' and v[-1] == '"':
-            v = v[1:-1]
-            v = v.replace('"', '\"')
-            v = v.replace('_', ' ')
-            return v
-        if v.isdigit():
-            v = int(v)
-        elif self.__isfloat(v):
-            v = float(v)
-        return v
-
-    def __create_dict(self, attr_dict, arg):
-        """creates dictionary from input paramaters of create() function"""
-        for params in arg:
-            if '=' in params:
-                i = params.index('=')
-                if i < len(params) - 1:
-                    k = params[:i]
-                    v = params[(i + 1):]
-                    v = self.__update_val(v)
-                    attr_dict[k] = v
-        return attr_dict
-
     def do_create(self, arg):
-        """create: create [ARG] [PARAM 1] [PARAM 2] ...
-        ARG = Class Name
-        PARAM = <key name>=<value>
-                value syntax: "<value>"
-        SYNOPSIS: Creates a new instance of the Class from given input ARG
-                  and PARAMS. Key in PARAM = an instance attribute.
-        EXAMPLE: create City name="Chicago"
-                 City.create(name="Chicago")
+        """Creates a new instance.
         """
-        arg = arg.split()
-        error = self.__class_err(arg)
-        if error:
+        args = arg.split()
+        if not validate_classname(args):
             return
-        k = arg[0]
-        class_obj = CNC[k]
-        if len(arg) > 1:
-            d = self.__create_dict({}, arg[1:])
-        else:
-            d = {}
-        my_obj = class_obj(**d)
-        my_obj.save()
-        print(my_obj.id)
+
+        new_obj = current_classes[args[0]]()
+        new_obj.save()
+        print(new_obj.id)
 
     def do_show(self, arg):
-        """show: show [ARG] [ARG1]
-        ARG = Class
-        ARG1 = ID #
-        SYNOPSIS: Prints object of given ID from given Class"""
-        arg = arg.split()
-        error = self.__class_err(arg)
-        if not error:
-            error += self.__id_err(arg)
-        if not error:
-            storage_objs = storage.all()
-            for k, v in storage_objs.items():
-                if arg[1] in k and arg[0] in k:
-                    print(v)
-
-    def do_all(self, arg):
-        """all: all [ARG]
-        ARG = Class
-        SYNOPSIS: prints all objects of given class
-        EXAMPLE: all City
-                 City.all()
+        """Prints the string representation of an instance.
         """
-        arg = arg.split()
-        error = 0
-        if arg:
-            error = self.__class_err(arg)
-            if error:
-                return
-        print('[', end='')
-        l = 0
-        if arg:
-            storage_objs = storage.all(arg[0])
-        else:
-            storage_objs = storage.all()
-        l = len(storage_objs)
-        c = 0
-        for v in storage_objs.values():
-            c += 1
-            print(v, end=(', ' if c < l else ''))
-        print(']')
+        args = arg.split()
+        if not validate_classname(args, check_id=True):
+            return
+
+        instance_objs = storage.all()
+        key = "{}.{}".format(args[0], args[1])
+        req_instance = instance_objs.get(key, None)
+        if req_instance is None:
+            print("** no instance found **")
+            return
+        print(req_instance)
 
     def do_destroy(self, arg):
-        """destroy: destroy [ARG] [ARG1]
-        ARG = Class
-        ARG1 = ID #
-        SYNOPSIS: destroys object of given ID from given Class
-        EXAMPLE: destroy City 1234-abcd-5678-efgh
-                 City.destroy(1234-abcd-5678-efgh)
+        """Deletes an instance based on the class name and id.
         """
-        arg = arg.split()
-        error = self.__class_err(arg)
-        if not error:
-            error += self.__id_err(arg)
-        if error:
+        args = arg.split()
+        if not validate_classname(args, check_id=True):
             return
-        storage_objs = storage.all()
-        for k in storage_objs.keys():
-            if arg[1] in k and arg[0] in k:
-                to_delete = storage_objs[k]
-        to_delete.delete()
+
+        instance_objs = storage.all()
+        key = "{}.{}".format(args[0], args[1])
+        req_instance = instance_objs.get(key, None)
+        if req_instance is None:
+            print("** no instance found **")
+            return
+
+        del instance_objs[key]
         storage.save()
 
-    def __rremove(self, s, l):
+    def do_all(self, arg):
+        """Prints string representation of all instances.
         """
-        private: removes characters in the input list from input string
-        """
-        for c in l:
-            s = s.replace(c, '')
-        return s
-
-    def __check_dict(self, arg):
-        """
-        private: checks if the arguments input has a dictionary
-        """
-        if '{' and '}' in arg:
-            l = arg.split('{')[1]
-            l = l.split(', ')
-            l = list(s.split(':') for s in l)
-            d = {}
-            for subl in l:
-                k = subl[0].strip('"\' {}')
-                v = subl[1].strip('"\' {}')
-                d[k] = v
-            return d
-        else:
-            return None
-
-    def __handle_update_err(self, arg):
-        """
-        private: checks for all errors in update
-        """
-        d = self.__check_dict(arg)
-        arg = self.__rremove(arg, [',', '"'])
-        arg = arg.split()
-        error = self.__class_err(arg)
-        if not error:
-            error += self.__id_err(arg)
-        if error:
-            return [0]
-        valid_id = 0
-        storage_objs = storage.all()
-        for k in storage_objs.keys():
-            if arg[1] in k and arg[0] in k:
-                key = k
-        if len(arg) < 3:
-            print(HBNBCommand.ERR[4])
-        elif len(arg) < 4:
-            print(HBNBCommand.ERR[5])
-        else:
-            return [1, arg, d, storage_objs, key]
-        return [0]
-
-    def do_update(self, arg):
-        """update: update [ARG] [ARG1] [ARG2] [ARG3]
-        ARG = Class
-        ARG1 = ID #
-        ARG2 = attribute name
-        ARG3 = value of new attribute
-        SYNOPSIS: updates or adds a new attribute and value of given Class
-        EXAMPLE: update City 1234-abcd-5678-efgh name Chicago
-                 City.update(1234-abcd-5678-efgh, name, Chicago)
-                 City.update(1234-abcd, {'name': 'Chicago', 'address': 'None'})
-        """
-        arg_inv = self.__handle_update_err(arg)
-        if arg_inv[0]:
-            arg = arg_inv[1]
-            d = arg_inv[2]
-            storage_objs = arg_inv[3]
-            key = arg_inv[4]
-            if not d:
-                avalue = arg[3].strip('"')
-                if avalue.isdigit():
-                    avalue = int(avalue)
-                storage_objs[key].bm_update({arg[2]: avalue})
-            else:
-                for k, v in d.items():
-                    if v.isdigit():
-                        v = int(v)
-                    storage_objs[key].bm_update({k: v})
-
-    def do_BaseModel(self, arg):
-        """class method with .function() syntax
-        Usage: BaseModel.<command>(<id>)"""
-        self.__parse_exec('BaseModel', arg)
-
-    def do_Amenity(self, arg):
-        """class method with .function() syntax
-        Usage: Amenity.<command>(<id>)"""
-        self.__parse_exec('Amenity', arg)
-
-    def do_City(self, arg):
-        """class method with .function() syntax
-        Usage: City.<command>(<id>)"""
-        self.__parse_exec('City', arg)
-
-    def do_Place(self, arg):
-        """class method with .function() syntax
-        Usage: Place.<command>(<id>)"""
-        self.__parse_exec('Place', arg)
-
-    def do_Review(self, arg):
-        """class method with .function() syntax
-        Usage: Review.<command>(<id>)"""
-        self.__parse_exec('Review', arg)
-
-    def do_State(self, arg):
-        """class method with .function() syntax
-        Usage: State.<command>(<id>)"""
-        self.__parse_exec('State', arg)
-
-    def do_User(self, arg):
-        """class method with .function() syntax
-        Usage: User.<command>(<id>)"""
-        self.__parse_exec('User', arg)
-
-    def __count(self, arg):
-        """counts the number objects in File Storage"""
         args = arg.split()
-        storage_objs = storage.all()
-        count = 0
-        for k in storage_objs.keys():
-            if args[0] in k:
-                count += 1
-        print(count)
+        all_objs = storage.all()
 
-    def __parse_exec(self, c, arg):
-        """
-        private: parses the input from .function() syntax, calls matched func
-        """
-        CMD_MATCH = {
-            '.all': self.do_all,
-            '.count': self.__count,
-            '.show': self.do_show,
-            '.destroy': self.do_destroy,
-            '.update': self.do_update,
-            '.create': self.do_create,
-        }
-        if '(' and ')' in arg:
-            check = arg.split('(')
-            new_arg = "{} {}".format(c, check[1][:-1])
-            for k, v in CMD_MATCH.items():
-                if k == check[0]:
-                    if ((',' or '"' in new_arg) and k != '.update'):
-                        new_arg = self.__rremove(new_arg, ['"', ','])
-                    v(new_arg)
-                    return
-        self.default(arg)
+        if len(args) < 1:
+            print(["{}".format(str(v)) for _, v in all_objs.items()])
+            return
+        if args[0] not in current_classes.keys():
+            print("** class doesn't exist **")
+            return
+        else:
+            print(["{}".format(str(v))
+                  for _, v in all_objs.items() if type(v).__name__ == args[0]])
+            return
 
-if __name__ == '__main__':
+    def do_update(self, arg: str):
+        """Updates an instance based on the class name and id.
+        """
+        args = arg.split(maxsplit=3)
+        if not validate_classname(args, check_id=True):
+            return
+
+        instance_objs = storage.all()
+        key = "{}.{}".format(args[0], args[1])
+        req_instance = instance_objs.get(key, None)
+        if req_instance is None:
+            print("** no instance found **")
+            return
+
+        match_json = re.findall(r"{.*}", arg)
+        if match_json:
+            payload = None
+            try:
+                payload: dict = json.loads(match_json[0])
+            except Exception:
+                print("** invalid syntax")
+                return
+            for k, v in payload.items():
+                setattr(req_instance, k, v)
+            storage.save()
+            return
+        if not validate_attrs(args):
+            return
+        first_attr = re.findall(r"^[\"\'](.*?)[\"\']", args[3])
+        if first_attr:
+            setattr(req_instance, args[2], first_attr[0])
+        else:
+            value_list = args[3].split()
+            setattr(req_instance, args[2], parse_str(value_list[0]))
+        storage.save()
+
+
+def validate_classname(args, check_id=False):
+    """Runs checks on args to validate classname entry.
     """
-    MAIN Loop
+    if len(args) < 1:
+        print("** class name missing **")
+        return False
+    if args[0] not in current_classes.keys():
+        print("** class doesn't exist **")
+        return False
+    if len(args) < 2 and check_id:
+        print("** instance id missing **")
+        return False
+    return True
+
+
+def validate_attrs(args):
+    """Runs checks on args to validate classname attributes and values.
     """
+    if len(args) < 3:
+        print("** attribute name missing **")
+        return False
+    if len(args) < 4:
+        print("** value missing **")
+        return False
+    return True
+
+
+def is_float(x):
+    """Checks if `x` is float.
+    """
+    try:
+        a = float(x)
+    except (TypeError, ValueError):
+        return False
+    else:
+        return True
+
+
+def is_int(x):
+    """Checks if `x` is int.
+    """
+    try:
+        a = float(x)
+        b = int(a)
+    except (TypeError, ValueError):
+        return False
+    else:
+        return a == b
+
+
+def parse_str(arg):
+    """Parse `arg` to an `int`, `float` or `string`.
+    """
+    parsed = re.sub("\"", "", arg)
+
+    if is_int(parsed):
+        return int(parsed)
+    elif is_float(parsed):
+        return float(parsed)
+    else:
+        return arg
+
+
+if __name__ == "__main__":
     HBNBCommand().cmdloop()

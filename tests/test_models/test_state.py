@@ -1,140 +1,70 @@
 #!/usr/bin/python3
+"""Unit tests for the `state` module.
 """
-Unit Test for State Class
-"""
-from datetime import datetime
-import inspect
-import json
-import models
-from os import environ, stat
-import pep8
+import os
 import unittest
-
-State = models.state.State
-BaseModel = models.base_model.BaseModel
-STORAGE_TYPE = environ.get('HBNB_TYPE_STORAGE')
-
-
-class TestStateDocs(unittest.TestCase):
-    """Class for testing State docs"""
-
-    all_funcs = inspect.getmembers(State, inspect.isfunction)
-
-    @classmethod
-    def setUpClass(cls):
-        print('\n\n.................................')
-        print('..... Testing Documentation .....')
-        print('........   State Class   ........')
-        print('.................................\n\n')
-
-    def test_doc_file(self):
-        """... documentation for the file"""
-        expected = '\nState Class from Models Module\n'
-        actual = models.state.__doc__
-        self.assertEqual(expected, actual)
-
-    def test_doc_class(self):
-        """... documentation for the class"""
-        expected = 'State class handles all application states'
-        actual = State.__doc__
-        self.assertEqual(expected, actual)
-
-    def test_all_function_docs(self):
-        """... tests for ALL DOCS for all functions in db_storage file"""
-        all_functions = TestStateDocs.all_funcs
-        for function in all_functions:
-            self.assertIsNotNone(function[1].__doc__)
-
-    def test_pep8_state(self):
-        """... state.py conforms to PEP8 Style"""
-        pep8style = pep8.StyleGuide(quiet=True)
-        errors = pep8style.check_files(['models/state.py'])
-        self.assertEqual(errors.total_errors, 0, errors.messages)
-
-    def test_file_is_executable(self):
-        """... tests if file has correct permissions so user can execute"""
-        file_stat = stat('models/state.py')
-        permissions = str(oct(file_stat[0]))
-        actual = int(permissions[5:-2]) >= 5
-        self.assertTrue(actual)
+from models.engine.file_storage import FileStorage
+from models.state import State
+from models import storage
+from datetime import datetime
 
 
-class TestStateInstances(unittest.TestCase):
-    """testing for class instances"""
-
-    @classmethod
-    def setUpClass(cls):
-        print('\n\n.................................')
-        print('....... Testing Functions .......')
-        print('.........  State Class  .........')
-        print('.................................\n\n')
+class TestState(unittest.TestCase):
+    """Test cases for the `State` class."""
 
     def setUp(self):
-        """initializes new state for testing"""
-        self.state = State()
+        pass
 
-    def test_instantiation(self):
-        """... checks if State is properly instantiated"""
-        self.assertIsInstance(self.state, State)
+    def tearDown(self) -> None:
+        """Resets FileStorage data."""
+        FileStorage._FileStorage__objects = {}
+        if os.path.exists(FileStorage._FileStorage__file_path):
+            os.remove(FileStorage._FileStorage__file_path)
 
-    @unittest.skipIf(STORAGE_TYPE == 'db', 'skip if environ is db')
-    def test_to_string(self):
-        """... checks if BaseModel is properly casted to string"""
-        my_str = str(self.state)
-        my_list = ['State', 'id', 'created_at']
-        actual = 0
-        for sub_str in my_list:
-            if sub_str in my_str:
-                actual += 1
-        self.assertTrue(3 == actual)
+    def test_params(self):
+        s1 = State()
+        s3 = State("hello", "wait", "in")
 
-    @unittest.skipIf(STORAGE_TYPE == 'db', 'skip if environ is db')
-    def test_instantiation_no_updated(self):
-        """... should not have updated attribute"""
-        my_str = str(self.state)
-        actual = 0
-        if 'updated_at' in my_str:
-            actual += 1
-        self.assertTrue(0 == actual)
+        k = f"{type(s1).__name__}.{s1.id}"
+        self.assertIsInstance(s1.name, str)
+        self.assertEqual(s3.name, "")
+        s1.name = "Chicago"
+        self.assertEqual(s1.name, "Chicago")
+        self.assertIn(k, storage.all())
 
-    @unittest.skipIf(STORAGE_TYPE == 'db', 'skip if environ is db')
-    def test_updated_at(self):
-        """... save function should add updated_at attribute"""
-        self.state.save()
-        actual = type(self.state.updated_at)
-        expected = type(datetime.now())
-        self.assertEqual(expected, actual)
+    def test_init(self):
+        """Test method for public instances"""
+        s1 = State()
+        s2 = State(**s1.to_dict())
+        self.assertIsInstance(s1.id, str)
+        self.assertIsInstance(s1.created_at, datetime)
+        self.assertIsInstance(s1.updated_at, datetime)
+        self.assertEqual(s1.updated_at, s2.updated_at)
 
-    @unittest.skipIf(STORAGE_TYPE == 'db', 'skip if environ is db')
-    def test_to_json(self):
-        """... to_json should return serializable dict object"""
-        self.state_json = self.state.to_json()
-        actual = 1
-        try:
-            serialized = json.dumps(self.state_json)
-        except:
-            actual = 0
-        self.assertTrue(1 == actual)
+    def test_str(self):
+        """Test method for str representation"""
+        s1 = State()
+        string = f"[{type(s1).__name__}] ({s1.id}) {s1.__dict__}"
+        self.assertEqual(s1.__str__(), string)
 
-    @unittest.skipIf(STORAGE_TYPE == 'db', 'skip if environ is db')
-    def test_json_class(self):
-        """... to_json should include class key with value State"""
-        self.state_json = self.state.to_json()
-        actual = None
-        if self.state_json['__class__']:
-            actual = self.state_json['__class__']
-        expected = 'State'
-        self.assertEqual(expected, actual)
+    def test_save(self):
+        """Test method for save"""
+        s1 = State()
+        old_update = s1.updated_at
+        s1.save()
+        self.assertNotEqual(s1.updated_at, old_update)
 
-    def test_name_attribute(self):
-        """... add name attribute"""
-        self.state.name = "betty"
-        if hasattr(self.state, 'name'):
-            actual = self.state.name
-        else:
-            acual = ''
-        expected = "betty"
-        self.assertEqual(expected, actual)
+    def test_todict(self):
+        """Test method for dict"""
+        s1 = State()
+        s2 = State(**s1.to_dict())
+        a_dict = s2.to_dict()
+        self.assertIsInstance(a_dict, dict)
+        self.assertEqual(a_dict['__class__'], type(s2).__name__)
+        self.assertIn('created_at', a_dict.keys())
+        self.assertIn('updated_at', a_dict.keys())
+        self.assertNotEqual(s1, s2)
 
-if __name__ == '__main__':
-    unittest.main
+
+if __name__ == "__main__":
+    unittest.main()

@@ -1,140 +1,82 @@
 #!/usr/bin/python3
+"""Unit tests for the `city` module.
 """
-Unit Test for Place Class
-"""
-from datetime import datetime
-import inspect
-import json
-import models
-from os import environ, stat
-import pep8
+import os
 import unittest
-
-Place = models.place.Place
-BaseModel = models.base_model.BaseModel
-STORAGE_TYPE = environ.get('HBNB_TYPE_STORAGE')
-
-
-class TestPlaceDocs(unittest.TestCase):
-    """Class for testing BaseModel docs"""
-
-    all_funcs = inspect.getmembers(Place, inspect.isfunction)
-
-    @classmethod
-    def setUpClass(cls):
-        print('\n\n.................................')
-        print('..... Testing Documentation .....')
-        print('........   Place Class   ........')
-        print('.................................\n\n')
-
-    def test_doc_file(self):
-        """... documentation for the file"""
-        expected = '\nPlace Class from Models Module\n'
-        actual = models.place.__doc__
-        self.assertEqual(expected, actual)
-
-    def test_doc_class(self):
-        """... documentation for the class"""
-        expected = 'Place class handles all application places'
-        actual = Place.__doc__
-        self.assertEqual(expected, actual)
-
-    def test_all_function_docs(self):
-        """... tests for ALL DOCS for all functions in db_storage file"""
-        all_functions = TestPlaceDocs.all_funcs
-        for function in all_functions:
-            self.assertIsNotNone(function[1].__doc__)
-
-    def test_pep8_place(self):
-        """... place.py conforms to PEP8 Style"""
-        pep8style = pep8.StyleGuide(quiet=True)
-        errors = pep8style.check_files(['models/place.py'])
-        self.assertEqual(errors.total_errors, 0, errors.messages)
-
-    def test_file_is_executable(self):
-        """... tests if file has correct permissions so user can execute"""
-        file_stat = stat('models/place.py')
-        permissions = str(oct(file_stat[0]))
-        actual = int(permissions[5:-2]) >= 5
-        self.assertTrue(actual)
+from models.engine.file_storage import FileStorage
+from models.place import Place
+from models import storage
+from datetime import datetime
 
 
-class TestPlaceInstances(unittest.TestCase):
-    """testing for class instances"""
-
-    @classmethod
-    def setUpClass(cls):
-        print('\n\n.................................')
-        print('....... Testing Functions .......')
-        print('.........  Place Class  .........')
-        print('.................................\n\n')
+class TestPlace(unittest.TestCase):
+    """Test cases for the `Place` class."""
 
     def setUp(self):
-        """initializes new place for testing"""
-        self.place = Place()
+        pass
 
-    def test_instantiation(self):
-        """... checks if Place is properly instantiated"""
-        self.assertIsInstance(self.place, Place)
+    def tearDown(self) -> None:
+        """Resets FileStorage data."""
+        FileStorage._FileStorage__objects = {}
+        if os.path.exists(FileStorage._FileStorage__file_path):
+            os.remove(FileStorage._FileStorage__file_path)
 
-    @unittest.skipIf(STORAGE_TYPE == 'db', 'skip if environ is db')
-    def test_to_string(self):
-        """... checks if BaseModel is properly casted to string"""
-        my_str = str(self.place)
-        my_list = ['Place', 'id', 'created_at']
-        actual = 0
-        for sub_str in my_list:
-            if sub_str in my_str:
-                actual += 1
-        self.assertTrue(3 == actual)
+    def test_params(self):
+        """Test method for class attributes"""
 
-    @unittest.skipIf(STORAGE_TYPE == 'db', 'skip if environ is db')
-    def test_instantiation_no_updated(self):
-        """... should not have updated attribute"""
-        my_str = str(self.place)
-        actual = 0
-        if 'updated_at' in my_str:
-            actual += 1
-        self.assertTrue(0 == actual)
+        p1 = Place()
+        p3 = Place("hello", "wait", "in")
+        k = f"{type(p1).__name__}.{p1.id}"
+        self.assertIsInstance(p1.name, str)
+        self.assertIn(k, storage.all())
+        self.assertEqual(p3.name, "")
 
-    @unittest.skipIf(STORAGE_TYPE == 'db', 'skip if environ is db')
-    def test_updated_at(self):
-        """... save function should add updated_at attribute"""
-        self.place.save()
-        actual = type(self.place.updated_at)
-        expected = type(datetime.now())
-        self.assertEqual(expected, actual)
+        self.assertIsInstance(p1.name, str)
+        self.assertIsInstance(p1.user_id, str)
+        self.assertIsInstance(p1.city_id, str)
+        self.assertIsInstance(p1.description, str)
+        self.assertIsInstance(p1.number_bathrooms, int)
+        self.assertIsInstance(p1.number_rooms, int)
+        self.assertIsInstance(p1.price_by_night, int)
+        self.assertIsInstance(p1.max_guest, int)
+        self.assertIsInstance(p1.longitude, float)
+        self.assertIsInstance(p1.latitude, float)
+        self.assertIsInstance(p1.amenity_ids, list)
 
-    @unittest.skipIf(STORAGE_TYPE == 'db', 'skip if environ is db')
-    def test_to_json(self):
-        """... to_json should return serializable dict object"""
-        self.place_json = self.place.to_json()
-        actual = 1
-        try:
-            serialized = json.dumps(self.place_json)
-        except:
-            actual = 0
-        self.assertTrue(1 == actual)
+    def test_init(self):
+        """Test method for public instances"""
 
-    @unittest.skipIf(STORAGE_TYPE == 'db', 'skip if environ is db')
-    def test_json_class(self):
-        """... to_json should include class key with value Place"""
-        self.place_json = self.place.to_json()
-        actual = None
-        if self.place_json['__class__']:
-            actual = self.place_json['__class__']
-        expected = 'Place'
-        self.assertEqual(expected, actual)
+        p1 = Place()
+        p2 = Place(**p1.to_dict())
+        self.assertIsInstance(p1.id, str)
+        self.assertIsInstance(p1.created_at, datetime)
+        self.assertIsInstance(p1.updated_at, datetime)
+        self.assertEqual(p1.updated_at, p2.updated_at)
 
-    def test_guest_attribute(self):
-        """... add guest attribute"""
-        self.place.max_guest = 3
-        if hasattr(self.place, 'max_guest'):
-            actual = self.place.max_guest
-        else:
-            actual = ''
-        expected = 3
-        self.assertEqual(expected, actual)
+    def test_str(self):
+        """Test method for str representation"""
+        p1 = Place()
+        string = f"[{type(p1).__name__}] ({p1.id}) {p1.__dict__}"
+        self.assertEqual(p1.__str__(), string)
 
-if __name__ == '__main__':
-    unittest.main
+    def test_save(self):
+        """Test method for save"""
+        p1 = Place()
+        old_update = p1.updated_at
+        p1.save()
+        self.assertNotEqual(p1.updated_at, old_update)
+
+    def test_todict(self):
+        """Test method for dict"""
+        p1 = Place()
+        p2 = Place(**p1.to_dict())
+        a_dict = p2.to_dict()
+        self.assertIsInstance(a_dict, dict)
+        self.assertEqual(a_dict['__class__'], type(p2).__name__)
+        self.assertIn('created_at', a_dict.keys())
+        self.assertIn('updated_at', a_dict.keys())
+        self.assertNotEqual(p1, p2)
+
+
+if __name__ == "__main__":
+    unittest.main()

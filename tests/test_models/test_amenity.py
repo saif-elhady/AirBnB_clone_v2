@@ -1,140 +1,71 @@
 #!/usr/bin/python3
+"""Unit tests for the `amenity` module.
 """
-Unit Test for Amenity Class
-"""
-from datetime import datetime
-import inspect
-import json
-import models
-from os import environ, stat
-import pep8
+import os
 import unittest
-
-Amenity = models.amenity.Amenity
-BaseModel = models.base_model.BaseModel
-STORAGE_TYPE = environ.get('HBNB_TYPE_STORAGE')
-
-
-class TestAmenityDocs(unittest.TestCase):
-    """Class for testing BaseModel docs"""
-
-    all_funcs = inspect.getmembers(Amenity, inspect.isfunction)
-
-    @classmethod
-    def setUpClass(cls):
-        print('\n\n.................................')
-        print('..... Testing Documentation .....')
-        print('........   Amenity  Class   ........')
-        print('.................................\n\n')
-
-    def test_doc_file(self):
-        """... documentation for the file"""
-        expected = '\nAmenity Class from Models Module\n'
-        actual = models.amenity.__doc__
-        self.assertEqual(expected, actual)
-
-    def test_doc_class(self):
-        """... documentation for the class"""
-        expected = 'Amenity class handles all application amenities'
-        actual = Amenity.__doc__
-        self.assertEqual(expected, actual)
-
-    def test_all_function_docs(self):
-        """... tests for ALL DOCS for all functions in db_storage file"""
-        all_functions = TestAmenityDocs.all_funcs
-        for function in all_functions:
-            self.assertIsNotNone(function[1].__doc__)
-
-    def test_pep8_amenity(self):
-        """... amenity.py conforms to PEP8 Style"""
-        pep8style = pep8.StyleGuide(quiet=True)
-        errors = pep8style.check_files(['models/amenity.py'])
-        self.assertEqual(errors.total_errors, 0, errors.messages)
-
-    def test_file_is_executable(self):
-        """... tests if file has correct permissions so user can execute"""
-        file_stat = stat('models/amenity.py')
-        permissions = str(oct(file_stat[0]))
-        actual = int(permissions[5:-2]) >= 5
-        self.assertTrue(actual)
+from models import storage
+from datetime import datetime
+from models.amenity import Amenity
+from models.engine.file_storage import FileStorage
 
 
-class TestAmenityInstances(unittest.TestCase):
-    """testing for class instances"""
-
-    @classmethod
-    def setUpClass(cls):
-        print('\n\n.................................')
-        print('....... Testing Functions .......')
-        print('.........  Amenity  Class  .........')
-        print('.................................\n\n')
+class TestAmenity(unittest.TestCase):
+    """Test cases for the `Amenity` class."""
 
     def setUp(self):
-        """initializes new amenity for testing"""
-        self.amenity = Amenity()
+        pass
 
-    def test_instantiation(self):
-        """... checks if Amenity is properly instantiated"""
-        self.assertIsInstance(self.amenity, Amenity)
+    def tearDown(self) -> None:
+        """Resets FileStorage data."""
+        FileStorage._FileStorage__objects = {}
+        if os.path.exists(FileStorage._FileStorage__file_path):
+            os.remove(FileStorage._FileStorage__file_path)
 
-    @unittest.skipIf(STORAGE_TYPE == 'db', 'skip if environ is db')
-    def test_to_string(self):
-        """... checks if BaseModel is properly casted to string"""
-        my_str = str(self.amenity)
-        my_list = ['Amenity', 'id', 'created_at']
-        actual = 0
-        for sub_str in my_list:
-            if sub_str in my_str:
-                actual += 1
-        self.assertTrue(3 == actual)
+    def test_params(self):
+        """Test method for class attributes"""
 
-    @unittest.skipIf(STORAGE_TYPE == 'db', 'skip if environ is db')
-    def test_instantiation_no_updated(self):
-        """... should not have updated attribute"""
-        my_str = str(self.amenity)
-        actual = 0
-        if 'updated_at' in my_str:
-            actual += 1
-        self.assertTrue(0 == actual)
+        a1 = Amenity()
+        a2 = Amenity(**a1.to_dict())
+        a3 = Amenity("hello", "wait", "in")
 
-    @unittest.skipIf(STORAGE_TYPE == 'db', 'skip if environ is db')
-    def test_updated_at(self):
-        """... save function should add updated_at attribute"""
-        self.amenity.save()
-        actual = type(self.amenity.updated_at)
-        expected = type(datetime.now())
-        self.assertEqual(expected, actual)
+        k = f"{type(a1).__name__}.{a1.id}"
+        self.assertIsInstance(a1.name, str)
+        self.assertIn(k, storage.all())
+        self.assertEqual(a3.name, "")
 
-    @unittest.skipIf(STORAGE_TYPE == 'db', 'skip if environ is db')
-    def test_to_json(self):
-        """... to_json should return serializable dict object"""
-        self.amenity_json = self.amenity.to_json()
-        actual = 1
-        try:
-            serialized = json.dumps(self.amenity_json)
-        except:
-            actual = 0
-        self.assertTrue(1 == actual)
+    def test_init(self):
+        """Test method for public instances"""
+        a1 = Amenity()
+        a2 = Amenity(**a1.to_dict())
+        self.assertIsInstance(a1.id, str)
+        self.assertIsInstance(a1.created_at, datetime)
+        self.assertIsInstance(a1.updated_at, datetime)
+        self.assertEqual(a1.updated_at, a2.updated_at)
 
-    @unittest.skipIf(STORAGE_TYPE == 'db', 'skip if environ is db')
-    def test_json_class(self):
-        """... to_json should include class key with value Amenity"""
-        self.amenity_json = self.amenity.to_json()
-        actual = None
-        if self.amenity_json['__class__']:
-            actual = self.amenity_json['__class__']
-        expected = 'Amenity'
-        self.assertEqual(expected, actual)
+    def test_str(self):
+        """Test method for str representation"""
+        a1 = Amenity()
+        string = f"[{type(a1).__name__}] ({a1.id}) {a1.__dict__}"
+        self.assertEqual(a1.__str__(), string)
 
-    def test_amenity_attribute(self):
-        """... add amenity attribute"""
-        self.amenity.name = "greatWifi"
-        if hasattr(self.amenity, 'name'):
-            actual = self.amenity.name
-        else:
-            actual = ''
-        expected = "greatWifi"
-        self.assertEqual(expected, actual)
+    def test_save(self):
+        """Test method for save"""
+        a1 = Amenity()
+        old_update = a1.updated_at
+        a1.save()
+        self.assertNotEqual(a1.updated_at, old_update)
 
-if __name__ == '__main__':
-    unittest.main
+    def test_todict(self):
+        """Test method for dict"""
+        a1 = Amenity()
+        a2 = Amenity(**a1.to_dict())
+        a_dict = a2.to_dict()
+        self.assertIsInstance(a_dict, dict)
+        self.assertEqual(a_dict['__class__'], type(a2).__name__)
+        self.assertIn('created_at', a_dict.keys())
+        self.assertIn('updated_at', a_dict.keys())
+        self.assertNotEqual(a1, a2)
+
+
+if __name__ == "__main__":
+    unittest.main()

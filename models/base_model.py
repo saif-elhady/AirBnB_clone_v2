@@ -1,15 +1,16 @@
 #!/usr/bin/python3
 """
-BaseModel Class of Models Module
+Module: base.py
 """
-
 import models
 import uuid
 from datetime import datetime
 
+
 class BaseModel():
     """
-    Base class that defines all common attributes/methods for other classes
+    Base class which defines all common
+    attributes/methods for other classes
     """
 
     def __init__(self, *args, **kwargs):
@@ -17,7 +18,7 @@ class BaseModel():
         instatiates an object with it's
         attributes
         """
-        if len (kwargs) > 0:
+        if len(kwargs) > 0:
             for key, value in kwargs.items():
                 if key == '__class__':
                     continue
@@ -45,7 +46,7 @@ class BaseModel():
         updates the public instance attribute
         updated_at with the current datetime
         """
-        self.updated_at =  datetime.now()
+        self.updated_at = datetime.now()
         models.storage.save()
 
     def to_dict(self):
@@ -55,7 +56,7 @@ class BaseModel():
         """
         dict = {**self.__dict__}
         dict['__class__'] = type(self).__name__
-        dict['created_at'] = dict['createda_at'].isoformat()
+        dict['created_at'] = dict['created_at'].isoformat()
         dict['updated_at'] = dict['updated_at'].isoformat()
 
         return dict
